@@ -125,14 +125,21 @@ func handleCommand(channel *phx.Channel, payload any) {
 		return
 	}
 
+	log.Printf("Received command: %+v\n", cmd)
+
+	args, ok := cmd["arguments"].(string)
+	if !ok {
+		log.Println("Invalid args format")
+		return
+	}
+
 	uuid, ok := cmd["uuid"].(string)
 	if !ok {
 		log.Println("Invalid uuid format")
 		return
 	}
 
-	log.Printf("Executing command: %s", command)
-	output, err := executeKubectlCommand(command)
+	output, err := executeCommand(command, args)
 	if err != nil {
 		log.Printf("Error executing command: %v", err)
 		output = fmt.Sprintf("Error: %v", err)
@@ -141,12 +148,13 @@ func handleCommand(channel *phx.Channel, payload any) {
 	}
 
 	response := map[string]interface{}{
-		"command": command,
-		"output":  output,
-		"uuid":    uuid,
+		"command":   command,
+		"arguments": args,
+		"output":    output,
+		"uuid":      uuid,
 	}
 
-	push, err := channel.Push("cmd", response)
+	push, err := channel.Push("output", response)
 	if err != nil {
 		log.Println("Failed to send command output:", err)
 		return
@@ -157,12 +165,12 @@ func handleCommand(channel *phx.Channel, payload any) {
 	})
 }
 
-func executeKubectlCommand(command string) (string, error) {
-	log.Printf("Executing kubectl command: %s", command)
+func executeCommand(command string, params string) (string, error) {
+	log.Printf("Executing command: %s %s", command, params)
 
 	// Split the command string into arguments
-	args := strings.Fields(command)
-	cmd := exec.Command("kubectl", args...)
+	args := strings.Fields(params)
+	cmd := exec.Command(command, args...)
 
 	// Capture both stdout and stderr
 	var stdout, stderr bytes.Buffer
@@ -172,18 +180,10 @@ func executeKubectlCommand(command string) (string, error) {
 	// Execute the command
 	err := cmd.Run()
 
-	// Log the full command output
-	log.Printf("kubectl stdout: %s", stdout.String())
-	log.Printf("kubectl stderr: %s", stderr.String())
-
 	if err != nil {
-		if exitError, ok := err.(*exec.ExitError); ok {
-			log.Printf("kubectl command failed with exit code: %d", exitError.ExitCode())
-		}
-		log.Printf("kubectl command error: %v", err)
 		return fmt.Sprintf("Error: %v\nStdout: %s\nStderr: %s", err, stdout.String(), stderr.String()), err
 	}
 
-	log.Println("kubectl command executed successfully")
+	log.Println("Command executed successfully")
 	return stdout.String(), nil
 }

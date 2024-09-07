@@ -32,8 +32,8 @@ metadata:
   name: k8s-agent-secret
 type: Opaque
 stringData:
-  cluster-id: "05c3feaa-f647-442c-b007-0a1ddc4a1cd9"
-  cluster-secret: "b7b4e5a3-4515-4224-9e6f-3f40e6771344"
+  cluster-id: "2f611c71-f113-44c0-bc11-b34514348577"
+  cluster-secret: "6a62e8d7-e985-40da-af1c-0991069f4a58"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -52,6 +52,7 @@ spec:
       serviceAccountName: k8s-agent-sa
       containers:
       - name: k8s-agent
+        #image: ghcr.io/ranching-farm/k8s-agent:latest
         image: k8s-agent:latest
         imagePullPolicy: Never
         env:

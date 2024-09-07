@@ -1,4 +1,4 @@
-FROM golang:1.23 as builder
+FROM golang:1.23 AS builder
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -7,7 +7,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o agent .
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates kubectl
+RUN apk --no-cache add ca-certificates kubectl kustomize helm bind-tools
 WORKDIR /root/
 COPY --from=builder /app/agent .
 ENTRYPOINT ["./agent"]
