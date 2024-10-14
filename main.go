@@ -62,6 +62,27 @@ func main() {
 		handleCommand(channel, payload)
 	})
 
+	channel.On("uninstall", func(payload any) {
+		log.Println("Uninstall triggered by website")
+
+		// Remove the ranching-farm-k8s-agent deployment
+		cmd := exec.Command("kubectl", "delete", "deployment", "ranching-farm-k8s-agent")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			log.Printf("Failed to remove ranching-farm-k8s-agent deployment: %v\nOutput:\n%s", err, string(output))
+		} else {
+			log.Printf("Successfully removed ranching-farm-k8s-agent deployment. Output: %s", string(output))
+		}
+
+		os.Exit(0)
+	})
+
+	// Setup owner reference for the rest
+	updateOwnerReference("serviceaccount", "ranching-farm-k8s-agent-sa")
+	updateOwnerReference("clusterrole", "ranching-farm-k8s-agent-role")
+	updateOwnerReference("clusterrolebinding", "ranching-farm-k8s-agent-role-binding")
+	updateOwnerReference("secret", "ranching-farm-k8s-agent-secret")
+
 	log.Println("Main loop started. Waiting for events...")
 	select {} // Keep the program running
 }
@@ -186,4 +207,34 @@ func executeCommand(command string, params string) (string, error) {
 
 	log.Println("Command executed successfully")
 	return stdout.String(), nil
+}
+
+func updateOwnerReference(object, deploymentName string) {
+	// Get the UID of the ranching-farm-k8s-agent deployment
+	agentUID, err := getDeploymentUID("ranching-farm-k8s-agent")
+	if err != nil {
+		log.Printf("Failed to get ranching-farm-k8s-agent UID: %v", err)
+		return
+	}
+
+	// Update the owner reference of the newly created deployment
+	updateCmd := exec.Command("kubectl", "patch", object, deploymentName,
+		"--type=json",
+		"-p", fmt.Sprintf(`[{"op": "add", "path": "/metadata/ownerReferences", "value": [{"apiVersion": "apps/v1", "kind": "Deployment", "name": "ranching-farm-k8s-agent", "uid": "%s"}]}]`, agentUID))
+	updateOutput, err := updateCmd.CombinedOutput()
+	if err != nil {
+		log.Printf("Failed to update owner reference for %s %s: %v\nOutput:\n%s", object, deploymentName, err, string(updateOutput))
+		return
+	}
+	log.Printf("Successfully updated owner reference for %s %s. Output: %s", object, deploymentName, string(updateOutput))
+}
+
+// Add this new function to get the UID of a deployment
+func getDeploymentUID(deploymentName string) (string, error) {
+	cmd := exec.Command("kubectl", "get", "deployment", deploymentName, "-o", "jsonpath={.metadata.uid}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to get deployment UID: %v", err)
+	}
+	return string(output), nil
 }
