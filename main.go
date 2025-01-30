@@ -46,8 +46,8 @@ func main() {
 	}
 	log.Println("Successfully connected to WebSocket")
 
-	log.Printf("Joining channel: cluster:%s", clusterId)
-	channel := socket.Channel(fmt.Sprintf("cluster:%s", clusterId), nil)
+	log.Printf("Joining channel: cluster:%s:%s", clusterId, secret)
+	channel := socket.Channel(fmt.Sprintf("cluster:%s:%s", clusterId, secret), nil)
 	join, err := channel.Join()
 	if err != nil {
 		log.Fatal("Failed to join channel:", err)
